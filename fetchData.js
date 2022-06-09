@@ -4,11 +4,13 @@ const baseUrl = "https://yh-finance.p.rapidapi.com/";
 const stockSummaryUrl = "stock/v2/get-summary";
 const region = "US";
 
-let rawdata = fs.readFileSync("env.json");
-let env = JSON.parse(rawdata);
-let rapidApiKey = env.XRapidAPIKey;
-let rapidApiHost = env.XRapidAPIHost;
-let stocksToCheck = env.StocksToCheck;//JSON.parse(env.StocksToCheck);
+const rawdata = fs.readFileSync("env.json");
+const env = JSON.parse(rawdata);
+const {
+        "XRapidAPIHost": rapidApiHost,
+        "XRapidAPIKey": rapidApiKey,
+        "StocksToCheck": stocksToCheck
+      } = env;
 
 if (!rapidApiHost || !rapidApiKey) {
     console.log("Either api key or api host is missing");
@@ -23,7 +25,9 @@ if (!stocksToCheck[0]) {
 process(stocksToCheck);
 
 function process (stocksToCheck) {
-    stocksToCheck.map(stockName => request(stockName));
+    stocksToCheck.forEach((stock, i) => {
+      setTimeout(() => request(stock), i * 250);
+    });
 }
 
 function request (stockName) {
@@ -36,16 +40,27 @@ function request (stockName) {
           'X-RapidAPI-Key': rapidApiKey
         }
       };
+      
       axios.request(options).then(function (response) {
         processResponse(response.data);
       }).catch(function (error) {
         console.error(error);
+        processError(error);
     });
 }
 
 function processResponse (res) {
     let companyName = res.price.longName;
-    let price = res.price.regularMarketOpen.raw
+    let price = res.price.regularMarketPrice.raw
     console.log(companyName);
     console.log(price);
+}
+
+function processError (error) {
+  let tooManyRequests = "You are making more than 5 requests per second";
+  let errorCode = error.response.status;
+  if (errorCode === 429) {
+    console.log(tooManyRequests)
+  }
+  console.log(errorCode);
 }
